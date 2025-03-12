@@ -10,7 +10,7 @@ Shader "Unlit/ZZZ_Shader"
         _OtherDataTex("Other Data Tex", 2D) = "white" {}
         _OtherDataTex2("Other Data Tex2", 2D) = "white" {}
         _NormalMap("Normal Map", 2D) = "bump" {}
-        _BumpScale("Bump Scale", Range(0, 1)) = 1
+        _BumpScale("Bump Scale", Range(-5, 5)) = 1
         _LightSDFTex("Light SDF Tex", 2D) = "white" {}
         _AlbedoSmoothness("Albedo Smoothness", Range(0.0, 1)) = 0.1
         _MaterialIDUSE("Material ID USE", Range(0, 4)) = 0 // 添加材质ID属性
@@ -36,6 +36,43 @@ Shader "Unlit/ZZZ_Shader"
         _PostSSSTint("Post SSS Tint", Color) = (1,1,1,1)
         _PostFrontTint("Post Front Tint", Color) = (1,1,1,1)
         _PostForwardTint("Post Forward Tint", Color) = (1,1,1,1)
+
+        _UseSphere("Use Sphere", Range(0,5)) = 1
+        _Metallic("Metallic", Range(0,1)) = 0
+        _Glossiness("Smoothness", Range(0,1)) = 0.5
+
+        [Header(Specular)]
+        [Toggle] _HighLightShape("HighLight Shape 1", float) = 0
+        [Toggle] _HighLightShape2("HighLight Shape 2", float) = 0
+        [Toggle] _HighLightShape3("HighLight Shape 3", float) = 0
+        [Toggle] _HighLightShape4("HighLight Shape 4", float) = 0
+        [Toggle] _HighLightShape5("HighLight Shape 5", float) = 0
+
+        _ToonSpecular("Toon Specular 1", Range(0, 1)) = 0.01
+        _ToonSpecular2("Toon Specular 2", Range(0, 1)) = 0.01
+        _ToonSpecular3("Toon Specular 3", Range(0, 1)) = 0.01
+        _ToonSpecular4("Toon Specular 4", Range(0, 1)) = 0.01
+        _ToonSpecular5("Toon Specular 5", Range(0, 1)) = 0.01
+
+        _SpecularRange("Specular Range 1", Range(0, 2)) = 1
+        _SpecularRange2("Specular Range 2", Range(0, 2)) = 1
+        _SpecularRange3("Specular Range 3", Range(0, 2)) = 1
+        _SpecularRange4("Specular Range 4", Range(0, 2)) = 1
+        _SpecularRange5("Specular Range 5", Range(0, 2)) = 1
+
+        _ShapeSoftness("Shape Softness 1", Range(0, 1)) = 0.1
+        _ShapeSoftness2("Shape Softness 2", Range(0, 1)) = 0.1
+        _ShapeSoftness3("Shape Softness 3", Range(0, 1)) = 0.1
+        _ShapeSoftness4("Shape Softness 4", Range(0, 1)) = 0.1
+        _ShapeSoftness5("Shape Softness 5", Range(0, 1)) = 0.1
+
+        _SpecIntensity("Spec Intensity", Range(0, 10)) = 0.1
+
+        _SpecularColor("Specular Color", Color) = (1,1,1,1)
+        _SpecularColor2("Specular Color 2", Color) = (1,1,1,1)
+        _SpecularColor3("Specular Color 3", Color) = (1,1,1,1)
+        _SpecularColor4("Specular Color 4", Color) = (1,1,1,1)
+        _SpecularColor5("Specular Color 5", Color) = (1,1,1,1)
 
         [HideInInspector]_HeadCenter("Head Center", Vector) = (0,0,0)
         [HideInInspector]_HeadForward("Head Forward", Vector) = (0,0,0)
@@ -85,6 +122,12 @@ Shader "Unlit/ZZZ_Shader"
         _RefractParam3("Refract WrapOffset 3", Vector) = (5,5,0,0)
         _RefractParam4("Refract WrapOffset 4", Vector) = (5,5,0,0)
         _RefractParam5("Refract WrapOffset 5", Vector) = (5,5,0,0)
+
+        _ModelSize("Model Size 1", Range(0, 100)) = 1
+        _ModelSize2("Model Size 2", Range(0, 100)) = 1
+        _ModelSize3("Model Size 3", Range(0, 100)) = 1
+        _ModelSize4("Model Size 4", Range(0, 100)) = 1
+        _ModelSize5("Model Size 5", Range(0, 100)) = 1
         
 
         _AlphaClip("Alpha Clip", Range(0, 1)) = 0.333
@@ -290,7 +333,7 @@ Shader "Unlit/ZZZ_Shader"
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
 
-                half3 viewDirWS = GetWorldSpaceNormalizeViewDir(vertexInput.positionWS);                           
+                float3 viewDirWS = GetWorldSpaceNormalizeViewDir(vertexInput.positionWS);                           
                 output.normalWS = half3(normalInput.normalWS);
                 float sign = input.tangentOS.w * float3(GetOddNegativeScale());
                 output.tangentWS = half4(normalInput.tangentWS.xyz,sign);
@@ -396,6 +439,8 @@ Shader "Unlit/ZZZ_Shader"
             float4 _OtherDataTex2_ST;
             float4 _NormalMap_ST;
             float _BumpScale;
+            float _Metallic;
+            float _Glossiness;
             float _AlbedoSmoothness;
             float _MaterialIDUSE; // 添加材质ID变量
             float _UseSDFTex;
@@ -422,6 +467,14 @@ Shader "Unlit/ZZZ_Shader"
             float3 _HeadCenter;
             float3 _HeadForward;
             float3 _HeadRight;
+
+            float _UseSphere;
+            float _HighLightShape;
+            float _HighLightShape2;
+            float _HighLightShape3;
+            float _HighLightShape4;
+            float _HighLightShape5;
+            
             float _HeadSphereRange;
             sampler2D _LightSDFTex;
             sampler2D _MatCapTex;
@@ -464,6 +517,33 @@ Shader "Unlit/ZZZ_Shader"
             float _MatCapBlendMode3;
             float _MatCapBlendMode4;
             float _MatCapBlendMode5;
+            float _ShapeSoftness;
+            float _ShapeSoftness2;
+            float _ShapeSoftness3;
+            float _ShapeSoftness4;
+            float _ShapeSoftness5;
+            float _SpecularRange;
+            float _SpecularRange2;
+            float _SpecularRange3;
+            float _SpecularRange4;
+            float _SpecularRange5;
+            float _ToonSpecular;
+            float _ToonSpecular2;
+            float _ToonSpecular3;
+            float _ToonSpecular4;
+            float _ToonSpecular5;
+            float _ModelSize;
+            float _ModelSize2;
+            float _ModelSize3;
+            float _ModelSize4;
+            float _ModelSize5;
+            float _SpecIntensity;
+
+            float4 _SpecularColor;
+            float4 _SpecularColor2;
+            float4 _SpecularColor3;
+            float4 _SpecularColor4;
+            float4 _SpecularColor5;
 
             
             //sampler2D _CameraDepthTexture;
@@ -496,6 +576,18 @@ Shader "Unlit/ZZZ_Shader"
             //     return rawDepth;
             // }
 
+            float3 ClampColorMax(float3 color)
+            {
+                float maxComponent = max3(color.r,color.g,color.b);
+                if (maxComponent > 1.0)
+                {
+                    return color / maxComponent;
+                }
+                return color;
+            }
+
+            //float UseSphere = _UseSphere;
+
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -519,6 +611,9 @@ Shader "Unlit/ZZZ_Shader"
                 float3 normalWS = normalize(IN.normalWS);
                 float3 pixelNormalWS = normalWS;
                 float  diffuseBias = 0;
+
+                float metallic = 0.0;
+
 
                 float matCapMask = 0;
 
@@ -569,8 +664,14 @@ Shader "Unlit/ZZZ_Shader"
                 float4 otherData = SAMPLE_TEXTURE2D(_OtherDataTex, sampler_OtherDataTex, IN.uv);
                 materialid = max(0,4 - floor(otherData.x *5)); // 将 x 通道值映射到 0-5的整数范围
 
+                metallic = _Metallic * otherData.y;
+                float specularMask = 0.0;
+                float smoothness = 0.5;
+
                 float4 otherData2 = SAMPLE_TEXTURE2D(_OtherDataTex2, sampler_OtherDataTex2, IN.uv);
+                smoothness = _Glossiness * otherData2.y;
                 matCapMask = otherData2.z;
+                specularMask = otherData.z;
                 
                 if (_UseSDFTex > 0)
                 {
@@ -606,6 +707,8 @@ Shader "Unlit/ZZZ_Shader"
                     angleMapMask = 0.0;
                 }
                 
+                metallic *= _Metallic;
+                smoothness *= _Glossiness;
 
                 normalWS *= isFrontFace ? 1 : -1;
                 pixelNormalWS *= isFrontFace ? 1 : -1;
@@ -623,8 +726,9 @@ Shader "Unlit/ZZZ_Shader"
 
                     // 计算阴影偏移量
                     float offsetMul = _ScreenSpaceShadowWidth * 5.0 * perspective / 100.0;
-                    float3 lightDirectionWS = TransformWorldToViewDir(normalize(lightDirWS));
-                    float2 offset =  lightDirWS.xy * offsetMul;// 计算偏移
+
+                    float3 lightDirectionVS = TransformWorldToViewDir(normalize(lightDirWS));
+                    float2 offset =  lightDirectionVS.xy * offsetMul;// 计算偏移
 
                     // 计算偏移后的屏幕坐标
                     int2 coord = IN.positionCS.xy + offset * _ScaledScreenParams.xy;
@@ -880,10 +984,154 @@ Shader "Unlit/ZZZ_Shader"
                 //}
                 //#endif
 
+                float3 gammaColor = capColor;
+                {
+                    float pixelNoL = dot(lightDirWS, pixelNormalWS);
+                    float NoL = dot(lightDirWS , normalWS);
+
+                    float occlusion = saturate(1 - 3 * (NoL - pixelNoL)) * 2;
+                    occlusion *= sqrt(occlusion);
+                    occlusion = min(1, occlusion);
+
+                    float attenuation = lerp((pixelNoL * 0.5 + 0.5) * occlusion, saturate(pixelNoL), 0.5);
+
+                    float3 capColorClamped = ClampColorMax(capColor);
+
+                    float luminance = Luminance(capColor);
+                    float gamma = lerp(luminance * 0.2875 + 1.4375, 1, attenuation);
+
+                    float3 capColorGamma = pow(max(1e-5, capColorClamped),gamma);
+                    float3 capColorGammaHalf = lerp(capColor, capColorGamma, 0.5);
+
+                    gammaColor = lerp(capColorGammaHalf, capColorGamma, saturate(NoL));
+
+                }
+
+                float3 pbrDiffuseColor = lerp(0.96 * gammaColor, 0, metallic);
+                float3 pbrSpecularColor = lerp(0.04, gammaColor, metallic);
+                float3 specularColor = 0;
+
+                if (_UseSphere == 1)
+                {
+                float shape = select(materialid,
+                    _HighLightShape,
+                    _HighLightShape2,
+                    _HighLightShape3,
+                    _HighLightShape4,
+                    _HighLightShape5
+                    );
+
+                    float range = select(materialid,
+                        _SpecularRange,
+                        _SpecularRange2,
+                        _SpecularRange3,
+                        _SpecularRange4,
+                        _SpecularRange5
+                        );
+
+                    float3 halfWS = normalize(lightDirWS + IN.viewDirWS);
+                    float LoH = dot(lightDirWS, halfWS);
+                    float rangeLoH = saturate(range * LoH * 0.75 + 0.25);
+                    float rangeLoH2 = max(0.1, rangeLoH * rangeLoH);
+
+                    float NoL = dot(pixelNormalWS, lightDirWS);
+                    float rangeNoL = saturate(range * NoL * 0.75 + 0.25);
+
+
+                    float specular = 0;
+
+                    if(shape > 0.5)
+                    {
+                        bool useSphere = _HeadSphereRange > 0;
+
+                        float3 shpereNormalWS = positionWS - _HeadCenter;
+                        float len = length(shpereNormalWS);
+                        shpereNormalWS = normalize(shpereNormalWS);
+                        float sphereUsage = 1.0 - saturate((len - _HeadSphereRange) * 20);
+                        float3 shapeNormalWS = lerp(pixelNormalWS, shpereNormalWS, sphereUsage);
+
+                        float attenuation = saturate(baseAttenuation * 1.5 + 0.5);
+                        float shapeNoL = dot(lightDirWS, shapeNormalWS);
+                        float shapeAttenuation = sqrt(saturate(shapeNoL * 0.5 + 0.5));
+
+                        shapeNormalWS = useSphere ? shapeNormalWS : pixelNormalWS;
+                        shapeAttenuation = useSphere ? shapeAttenuation : attenuation;
+
+                        float NoH = dot(shapeNormalWS, halfWS);
+                        float NoH01 = saturate(NoH * 0.5 + 0.5);
+
+                        specular = NoH01 * shapeAttenuation + specularMask -1;
+
+                        float softness = select(materialid,
+                            _ShapeSoftness,
+                            _ShapeSoftness2,
+                            _ShapeSoftness3,
+                            _ShapeSoftness4,
+                            _ShapeSoftness5
+                            );
+                            specular = saturate(specular / softness);
+                            specular = specular * min(1.0, 1.0 / (6.0 * rangeLoH2)) * rangeNoL;             
+                    }
+                else
+                {
+                    float perceptualRoughness = 1.0 - smoothness;
+                    float roughness = perceptualRoughness * perceptualRoughness;
+                    float normalizationTerm = roughness * 4 + 2;
+                    float roughness2 = roughness * roughness;
+                    float roughness2MinusOne = roughness2 - 1;
+
+                    float NoH = dot(pixelNormalWS, halfWS);
+                    float rangeNoH = saturate(range * NoH * 0.75 + 0.25);
+
+                    float d = rangeNoH * rangeNoH * roughness2MinusOne + 1;
+                    float d2 = d * d;
+
+                    float ggx = roughness2 / (d2 * rangeLoH2 * normalizationTerm);
+                    specular = saturate(ggx - smoothness) * rangeNoL;
+
+                    specular /= max(1e-5, roughness);
+
+                    float toon = select(materialid,
+                        _ToonSpecular,
+                        _ToonSpecular2,
+                        _ToonSpecular3,
+                        _ToonSpecular4,
+                        _ToonSpecular5
+                        );
+
+                        float size = select(materialid,
+                            _ModelSize,
+                            _ModelSize2,
+                            _ModelSize3,
+                            _ModelSize4,
+                            _ModelSize5
+                            );
+
+                            specular *= toon * size * specularMask;
+                            specular *= 10;
+                            specular = saturate(specular);
+                }
+
+                specular *= 100;
+                specular *= _SpecIntensity;
+
+                float3 tintColor = select(materialid,
+                    _SpecularColor,
+                    _SpecularColor2,
+                    _SpecularColor3,
+                    _SpecularColor4,
+                    _SpecularColor5
+                    );
+
+                    specularColor = specular * tintColor;
+                    specularColor *= texel.rgb * 0.5;
+            }
+            
+
 
 
                 //return float4(albedo * texel, baseAlpha);
-                return float4(capColor, baseAlpha);
+                return float4(pbrDiffuseColor * albedo + pbrSpecularColor * specularColor * albedo, baseAlpha);
 
             }
             ENDHLSL
@@ -974,7 +1222,7 @@ Shader "Unlit/ZZZ_Shader"
             float4 _NormalMap_ST;
             float _BumpScale;
             float _AlbedoSmoothness;
-            float _MaterialIDUSE; // 添加材质ID变量
+            float _MaterialID; // 添加材质ID变量
             float4 _ShadowColor; // 添加阴影颜色变量
             float4 _ShadowColor2;
             float4 _ShadowColor3;
@@ -1101,8 +1349,8 @@ Shader "Unlit/ZZZ_Shader"
                     float perspective = 1.0 / linearEyeDepth;
                     float offsetMul = _ScreenSpaceShadowWidth * 5.0 * perspective / 100.0;
 
-                    float3 lightDirectionWS = TransformWorldToViewDir(lightDirWS);
-                    float2 offset =  lightDirWS.xy * offsetMul;
+                    float3 lightDirectionVS = TransformWorldToViewDir(lightDirWS);
+                    float2 offset =  lightDirectionVS.xy * offsetMul;
                     float2 coord = IN.positionCS.xy + offset * _ScaledScreenParams.xy;
                     coord = min(max(0,coord), _ScaledScreenParams.xy - 1);
                     float offsetSceneDepth = LoadSceneDepth(coord);
