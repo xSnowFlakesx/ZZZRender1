@@ -37,6 +37,10 @@ Shader "Unlit/ZZZ_Shader"
         _PostFrontTint("Post Front Tint", Color) = (1,1,1,1)
         _PostForwardTint("Post Forward Tint", Color) = (1,1,1,1)
 
+        _AmbientColorIntensity("Ambient Color Intensity", Range(0, 1)) = 0.333
+
+        [Enum(s0,0,s1,1,s2,2,s3,3,s4,4,s5,5)] _SkinMatId("Skin Mat Id", Float) = 0
+
         _UseSphere("Use Sphere", Range(0,5)) = 1
         _Metallic("Metallic", Range(0,1)) = 0
         _Glossiness("Smoothness", Range(0,1)) = 0.5
@@ -73,6 +77,20 @@ Shader "Unlit/ZZZ_Shader"
         _SpecularColor3("Specular Color 3", Color) = (1,1,1,1)
         _SpecularColor4("Specular Color 4", Color) = (1,1,1,1)
         _SpecularColor5("Specular Color 5", Color) = (1,1,1,1)
+
+        [Header(Rim Glow)]
+        [HDR] _RimGlowLightColor("Rim Glow Light Color", Color) = (0.55,0.55,0.55,1)
+        [HDR] _RimGlowLightColor2("Rim Glow Light Color 2", Color) = (0.55,0.55,0.55,1)
+        [HDR] _RimGlowLightColor3("Rim Glow Light Color 3", Color) = (0.55,0.55,0.55,1)
+        [HDR] _RimGlowLightColor4("Rim Glow Light Color 4", Color) = (0.55,0.55,0.55,1)
+        [HDR] _RimGlowLightColor5("Rim Glow Light Color 5", Color) = (0.55,0.55,0.55,1)
+
+        [HDR] _UISunColor("UI Sun Color", Color) = (1,0.92,0.9,1)
+        [HDR] _UISunColor2("UI Sun Color 2", Color) = (1,0.92,0.9,1)
+        [HDR] _UISunColor3("UI Sun Color 3", Color) = (1,0.92,0.9,1)
+        [HDR] _UISunColor4("UI Sun Color 4", Color) = (1,0.92,0.9,1)
+        [HDR] _UISunColor5("UI Sun Color 5", Color) = (1,0.92,0.9,1)
+
 
         [HideInInspector]_HeadCenter("Head Center", Vector) = (0,0,0)
         [HideInInspector]_HeadForward("Head Forward", Vector) = (0,0,0)
@@ -131,6 +149,13 @@ Shader "Unlit/ZZZ_Shader"
         
 
         _AlphaClip("Alpha Clip", Range(0, 1)) = 0.333
+
+        [Header(Screen Space Rim)]
+        [Toggle(_SCREEN_SPACE_RIM)] _ScreenSpaceRim("Screen Space Rim", Float) = 1
+        _ScreenSpaceRimWidth("Screen Space Rim Width", Range(0, 10)) = 1
+        _ScreenSpaceRimThreshold("Screen Space Rim Threshold", Range(0, 1)) = 0.01
+        _ScreenSpaceRimFadeout("Screen Space Rim Fadeout", Range(0, 10)) = 0.5
+        _ScreenSpaceRimBrightness("Screen Space Rim Brightness", Range(0, 10)) = 1
 
         [Header(Screen Space Shadow)]
         [Toggle(_SCREEN_SPACE_SHADOW)] _ScreenSpaceShadow("Screen Space Shadow", Float) = 1
@@ -398,6 +423,37 @@ Shader "Unlit/ZZZ_Shader"
             DEFINE_MINMAX3(float)
             DEFINE_MINMAX3(half)
 
+            #define DEFINE_POW(TYPE) \
+            TYPE pow2(TYPE x) { return TYPE (x * x);} \
+            TYPE##2 pow2(TYPE##2 x) { return TYPE##2 (x * x);} \
+            TYPE##3 pow2(TYPE##3 x) { return TYPE##3 (x * x);} \
+            TYPE##4 pow2(TYPE##4 x) { return TYPE##4 (x * x);} \
+            TYPE pow3(TYPE x) { return TYPE (x * x * x);} \
+            TYPE##2 pow3(TYPE##2 x) { return TYPE##2 (x * x * x);} \
+            TYPE##3 pow3(TYPE##3 x) { return TYPE##3 (x * x * x);} \
+            TYPE##4 pow3(TYPE##4 x) { return TYPE##4 (x * x * x);} \
+            TYPE pow4(TYPE x) { TYPE xx = x * x; return TYPE (xx * xx);} \
+            TYPE##2 pow4(TYPE##2 x) { TYPE##2 xx = x * x; return TYPE##2 (xx * xx);} \
+            TYPE##3 pow4(TYPE##3 x) { TYPE##3 xx = x * x; return TYPE##3 (xx * xx);} \
+            TYPE##4 pow4(TYPE##4 x) { TYPE##4 xx = x * x; return TYPE##4 (xx * xx);} \
+            TYPE pow5(TYPE x) { TYPE xx = x * x; return TYPE (xx * xx * x);} \
+            TYPE##2 pow5(TYPE##2 x) { TYPE##2 xx = x * x; return TYPE##2 (xx * xx * x);} \
+            TYPE##3 pow5(TYPE##3 x) { TYPE##3 xx = x * x; return TYPE##3 (xx * xx * x);} \
+            TYPE##4 pow5(TYPE##4 x) { TYPE##4 xx = x * x; return TYPE##4 (xx * xx * x);} \
+            TYPE pow6(TYPE x) { TYPE xx = x * x; return TYPE (xx * xx * xx);} \
+            TYPE##2 pow6(TYPE##2 x) { TYPE##2 xx = x * x; return TYPE##2 (xx * xx * xx);} \
+            TYPE##3 pow6(TYPE##3 x) { TYPE##3 xx = x * x; return TYPE##3 (xx * xx * xx);} \
+            TYPE##4 pow6(TYPE##4 x) { TYPE##4 xx = x * x; return TYPE##4 (xx * xx * xx);} \
+
+            DEFINE_POW(bool)
+            DEFINE_POW(uint)
+            DEFINE_POW(int)
+            DEFINE_POW(float)
+            DEFINE_POW(half)
+            
+            
+
+
              // 定义 select 函数
              float3 select(int id, float3 e0, float3 e1, float3 e2, float3 e3, float3 e4)
              {
@@ -467,6 +523,23 @@ Shader "Unlit/ZZZ_Shader"
             float3 _HeadCenter;
             float3 _HeadForward;
             float3 _HeadRight;
+
+            float _ScreenSpaceRimWidth;
+            float _ScreenSpaceRimThreshold;
+            float _ScreenSpaceRimFadeout;
+            float _ScreenSpaceRimBrightness;
+
+            float3 _RimGlowLightColor;
+            float3 _RimGlowLightColor2;
+            float3 _RimGlowLightColor3;
+            float3 _RimGlowLightColor4;
+            float3 _RimGlowLightColor5;
+
+            float3 _UISunColor;
+            float3 _UISunColor2;
+            float3 _UISunColor3;
+            float3 _UISunColor4;
+            float3 _UISunColor5;
 
             float _UseSphere;
             float _HighLightShape;
@@ -545,6 +618,9 @@ Shader "Unlit/ZZZ_Shader"
             float4 _SpecularColor4;
             float4 _SpecularColor5;
 
+            float _AmbientColorIntensity;
+
+            int _SkinMatId;
             
             //sampler2D _CameraDepthTexture;
             //SAMPLER(sampler_CameraDepthTexture);
@@ -1128,10 +1204,106 @@ Shader "Unlit/ZZZ_Shader"
             }
             
 
+            float3 ambientColor = SampleSH(pixelNormalWS) * gammaColor * _AmbientColorIntensity;
 
+            float3 rimGlowColor = 0;
+            {
+                bool isSkin = materialid == _SkinMatId;
+
+                float LoV = dot(lightDirWS, IN.viewDirWS);
+                float viewAttenuation = -LoV * 0.5 + 0.5;
+                viewAttenuation = pow2(viewAttenuation);
+                float edgeAttenuation = 1 - pow4(pow5(viewAttenuation));
+                viewAttenuation = viewAttenuation * 0.5 + 0.5;
+
+                float verticalAttenuation = pixelNormalWS.y * 0.5 + 0.5;
+                verticalAttenuation = isSkin ? verticalAttenuation : pow2(verticalAttenuation);
+                verticalAttenuation = smoothstep(0, 1.0, verticalAttenuation);
+
+                float lightAttenuation = saturate(dot(pixelNormalWS ,lightDirWS)) * shadowAttenuation;
+
+                float cameraDistance = length(IN.viewDirWS);
+
+                float NoV = dot(pixelNormalWS, IN.viewDirWS);
+                float fresnelDistanceFade = (isSkin ? 0.75 : 0.65) - 0.45 * min(1, cameraDistance / 12.0);
+                float fresnelAttenuation = 1 - NoV - fresnelDistanceFade;
+                float fresnelSoftness = isSkin ? 0.2 : 0.3;
+                fresnelAttenuation = smoothstep(0, fresnelSoftness, fresnelAttenuation);
+
+                float distanceAttenuation = 1 - 0.7 * saturate(cameraDistance * 0.2 - 1);
+
+                float3 sunColor = select(materialid,
+                    _UISunColor,
+                    _UISunColor2,
+                    _UISunColor3,
+                    _UISunColor4,
+                    _UISunColor5
+                    );
+                    float sunLuminance = Luminance(sunColor);
+                    sunColor = isSkin ? sunColor : sunLuminance.xxx;
+
+                    float3 sunColorScaled = pow2(pow4(sunColor));
+                    sunColorScaled /= max(1e-5, dot(sunColorScaled, 0.7));
+
+                    sunColor = AverageColor(sunColor) * sunColorScaled;
+                    sunColor = lerp(albedo, sunColor, shadowAttenuation);
+                    sunColor = lerp(albedo, sunColor, edgeAttenuation);
+
+                    float3 rimDiffuse = pow(max(1e-5, pbrDiffuseColor), 0.2);
+                    rimDiffuse = normalize(rimDiffuse);
+                    float diffuseBrightness = AverageColor(pbrDiffuseColor);
+                    diffuseBrightness = (1 - 0.2 * pow2(diffuseBrightness)) * 0.1;
+                    rimDiffuse *= diffuseBrightness;
+
+                    float3 rimSpecular = pbrSpecularColor;
+
+                    float3 rimColor = lerp(rimDiffuse,rimSpecular, metallic);
+                    rimColor *= 48;
+                    rimColor *= fresnelAttenuation * verticalAttenuation * viewAttenuation * lightAttenuation * distanceAttenuation * sunColor;
+
+                    float3 glowColor = select(materialid,
+                        _RimGlowLightColor,
+                        _RimGlowLightColor2,
+                        _RimGlowLightColor3,
+                        _RimGlowLightColor4,
+                        _RimGlowLightColor5
+                        );
+
+                        rimColor *= glowColor;
+
+                        float3 rimColorBrightness = AverageColor(rimColor);
+                        rimColorBrightness = pow2(rimColorBrightness);
+                        rimColorBrightness = 1 + 0.5 * rimColorBrightness;
+                        rimColor *= rimColorBrightness;
+                        
+                        float screenSpaceRim = 1.0;
+                        #if _SCREEN_SPACE_RIM
+                        {
+                            float linearEyeDepth = IN.positionCS.w;
+                            float3 normalVS = TransformWorldToViewDir(normalWS);
+                            float2 uvOffset = float2(normalize(normalVS.xy)) * _ScreenSpaceRimWidth / linearEyeDepth;
+                            int2 texPos = IN.positionCS.xy + uvOffset;
+                            texPos = min(max(0, texPos), _ScaledScreenParams.xy - 1);
+                            float offsetSceneDepth = LoadSceneDepth(texPos);
+                            float offsetSceneLinearEyeDepth = LinearEyeDepth(offsetSceneDepth, _ZBufferParams);
+                            screenSpaceRim = saturate((offsetSceneLinearEyeDepth - (linearEyeDepth + _ScreenSpaceRimThreshold)) * 10 / _ScreenSpaceRimFadeout);
+                            screenSpaceRim *= _ScreenSpaceRimBrightness;
+                        }
+                        #endif
+
+                        rimGlowColor = rimColor * screenSpaceRim;
+
+            }
+
+            float3 color = ambientColor;
+            color += pbrDiffuseColor * albedo + pbrSpecularColor * specularColor * albedo;
+            color += max(0, pbrSpecularColor * specularColor * albedo - 1);
+            color += rimGlowColor;
+
+            color = MixFog(color, IN.positionWSAndFogFactor.w);
 
                 //return float4(albedo * texel, baseAlpha);
-                return float4(pbrDiffuseColor * albedo + pbrSpecularColor * specularColor * albedo, baseAlpha);
+                return float4(color, baseAlpha);
 
             }
             ENDHLSL
