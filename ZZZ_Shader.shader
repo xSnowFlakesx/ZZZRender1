@@ -40,6 +40,7 @@ Shader "Unlit/ZZZ_Shader"
         _AmbientColorIntensity("Ambient Color Intensity", Range(0, 1)) = 0.333
 
         [Enum(s0,0,s1,1,s2,2,s3,3,s4,4,s5,5)] _SkinMatId("Skin Mat Id", Float) = 0
+        [Enum(s0,0,s1,1,s2,2,s3,3,s4,4,s5,5)] _GlossMatId("Gloss Mat Id", Float) = 0
 
         _UseSphere("Use Sphere", Range(0,5)) = 1
         _Metallic("Metallic", Range(0,1)) = 0
@@ -180,6 +181,17 @@ Shader "Unlit/ZZZ_Shader"
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilPassOp("Stencil pass operation", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilFailOp("Stencil fail operation", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFailOp("Stencil Z fail operation", int) = 0
+
+        [Header(SRP Default)]
+        [Toggle(_SRP_DEFAULT_PASS)] _SRPDefaultPass("SRP Default Pass", int) = 0
+        [Enum(UnityEngine.Rendering.BlendMode)] _SRPSrcBlendMode("SRP SrcBlendMode(Default One)", Float) = 1
+        [Enum(UnityEngine.Rendering.BlendMode)] _SRPDstBlendMode("SRP DstBlendMode(Default Zero)", Float) = 0
+        [Enum(UnityEngine.Rendering.BlendOp)] _SRPBlendOp("SRP BlendOp(Default Add)", Float) = 0
+        _SRPStencilRef("SRP Stencil reference", int) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _SRPStencilComp("SRP Stencil comparison function", int) = 8
+        [Enum(UnityEngine.Rendering.StencilOp)] _SRPStencilPassOp("SRP Stencil pass operation", int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _SRPStencilFailOp("SRP Stencil fail operation", int) = 0
+        [Enum(UnityEngine.Rendering.StencilOp)] _SRPStencilZFailOp("SRP Stencil Z fail operation", int) = 0
 
         
 
@@ -621,6 +633,7 @@ Shader "Unlit/ZZZ_Shader"
             float _AmbientColorIntensity;
 
             int _SkinMatId;
+            int _GlossMatId;
             
             //sampler2D _CameraDepthTexture;
             //SAMPLER(sampler_CameraDepthTexture);
@@ -1292,8 +1305,12 @@ Shader "Unlit/ZZZ_Shader"
                         #endif
 
                         rimGlowColor = rimColor * screenSpaceRim;
+                        rimGlowColor = min(rimGlowColor, 1.0);
 
             }
+
+            bool isGloss = materialid == _GlossMatId;
+
 
             float3 color = ambientColor;
             color += pbrDiffuseColor * albedo + pbrSpecularColor * specularColor * albedo;
@@ -1304,6 +1321,7 @@ Shader "Unlit/ZZZ_Shader"
 
                 //return float4(albedo * texel, baseAlpha);
                 return float4(color, baseAlpha);
+                
 
             }
             ENDHLSL
