@@ -38,6 +38,7 @@ Shader "Unlit/ZZZ_Shader"
         _PostForwardTint("Post Forward Tint", Color) = (1,1,1,1)
 
         _AmbientColorIntensity("Ambient Color Intensity", Range(0, 1)) = 0.333
+        
 
         [Enum(s0,0,s1,1,s2,2,s3,3,s4,4,s5,5)] _SkinMatId("Skin Mat Id", Float) = 0
         [Enum(s0,0,s1,1,s2,2,s3,3,s4,4,s5,5)] _GlossMatId("Gloss Mat Id", Float) = 0
@@ -177,7 +178,7 @@ Shader "Unlit/ZZZ_Shader"
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendMode("DstBlendMode(Default Zero)", Float) = 0
         [Enum(UnityEngine.Rendering.BlendOp)] _BlendOp("BlendOp(Default Add)", Float) = 0
         _StencilRef("Stencil reference", int) = 0
-        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp("Stencil comparison function", int) = 8
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp("Stencil comparison function", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilPassOp("Stencil pass operation", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilFailOp("Stencil fail operation", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFailOp("Stencil Z fail operation", int) = 0
@@ -188,7 +189,7 @@ Shader "Unlit/ZZZ_Shader"
         [Enum(UnityEngine.Rendering.BlendMode)] _SRPDstBlendMode("SRP DstBlendMode(Default Zero)", Float) = 0
         [Enum(UnityEngine.Rendering.BlendOp)] _SRPBlendOp("SRP BlendOp(Default Add)", Float) = 0
         _SRPStencilRef("SRP Stencil reference", int) = 0
-        [Enum(UnityEngine.Rendering.CompareFunction)] _SRPStencilComp("SRP Stencil comparison function", int) = 8
+        [Enum(UnityEngine.Rendering.CompareFunction)] _SRPStencilComp("SRP Stencil comparison function", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _SRPStencilPassOp("SRP Stencil pass operation", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _SRPStencilFailOp("SRP Stencil fail operation", int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _SRPStencilZFailOp("SRP Stencil Z fail operation", int) = 0
@@ -203,6 +204,7 @@ Shader "Unlit/ZZZ_Shader"
     SubShader
     {
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
+        LOD 100
 
         
         Pass
@@ -284,7 +286,7 @@ Shader "Unlit/ZZZ_Shader"
         {
             Name "DepthOnly"
             Tags { "LightMode" = "DepthOnly" }
-            ZWrite On
+            ZWrite [_ZWrite]
             ColorMask 0
             Cull [_Cull]
 
@@ -392,18 +394,18 @@ Shader "Unlit/ZZZ_Shader"
         {
             Name "UniversalForward"
             Tags { "LightMode" = "UniversalForward" }
-            // Cull [_Cull]
-            // Blend [_SrcBlendMode] [_DstBlendMode]
-            // BlendOp [_BlendOp]
-            // ZWrite [_ZWrite]
-            // Stencil
-            // {
-            //     Ref [_StencilRef]
-            //     Comp [_StencilComp]
-            //     Pass [_StencilPassOp]
-            //     Fail [_StencilFailOp]
-            //     ZFail [_StencilZFailOp]
-            // }
+             Cull [_Cull]
+             Blend [_SrcBlendMode] [_DstBlendMode]
+             BlendOp [_BlendOp]
+             ZWrite [_ZWrite]
+             Stencil
+             {
+                 Ref [_StencilRef]
+                 Comp [_StencilComp]
+                 Pass [_StencilPassOp]
+                 Fail [_StencilFailOp]
+                 ZFail [_StencilZFailOp]
+             }
 
             HLSLPROGRAM
             #pragma shader_feature_local _SCREEN_SPACE_RIM
@@ -1329,11 +1331,11 @@ Shader "Unlit/ZZZ_Shader"
 
         Pass
         {
-            Name "UniversalForward2"
-            Tags { "LightMode" = "UniversalForward" }
+            Name "SRPDefaulUnlit"
+            Tags { "LightMode" = "SRPDefaultUnlit" }
             Cull [_Cull]
-            Blend [_SrcBlendMode] [_DstBlendMode]
-            BlendOp [_BlendOp]
+            Blend [_SRPSrcBlendMode] [_SRPDstBlendMode]
+            BlendOp [_SRPBlendOp]
             ZWrite [_ZWrite]
             Stencil
             {
@@ -1345,305 +1347,344 @@ Shader "Unlit/ZZZ_Shader"
             }
 
             HLSLPROGRAM
+            #pragma shader_feature_local _SRP_DEFAULT_PASS
             #pragma shader_feature_local _SCREEN_SPACE_RIM
             #pragma shader_feature_local _SCREEN_SPACE_SHADOW
+            #pragma shader_feature_local _MATCAP_ON
 
-            #pragma vertex vert
-            #pragma fragment frag
+            #pragma vertex MainVS2
+            #pragma fragment MainPS2
 
             #pragma multi_compile_fog
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+            #if _SRP_DEFAULT_PASS
+            UniversalVaryings MainVS2(UniversalAttributes input) { return MainVS(input); }
+            float4 MainPS2(UniversalVaryings input, bool isFrontFace : SV_IsFrontFace) : SV_Target { return MainPS(input, isFrontFace); }
+            #else
+            void MainVS2() {};
+            void MainPS2() {};
+            #endif
 
-            #define DEFINE_MINMAX3(TYPE) \
-            TYPE min3(TYPE a, TYPE b, TYPE c) { return TYPE(min(min(a, b), c)); } \
-            TYPE##2 min3(TYPE##2 a, TYPE##2 b, TYPE##2 c) { return TYPE##2(min(min(a, b), c)); } \
-            TYPE##3 min3(TYPE##3 a, TYPE##3 b, TYPE##3 c) { return TYPE##3(min(min(a, b), c)); } \
-            TYPE##4 min3(TYPE##4 a, TYPE##4 b, TYPE##4 c) { return TYPE##4(min(min(a, b), c)); } \
-            TYPE max3(TYPE a, TYPE b, TYPE c) { return TYPE(max(max(a, b), c)); } \
-            TYPE##2 max3(TYPE##2 a, TYPE##2 b, TYPE##2 c) { return TYPE##2(max(max(a, b), c)); } \
-            TYPE##3 max3(TYPE##3 a, TYPE##3 b, TYPE##3 c) { return TYPE##3(max(max(a, b), c)); } \
-            TYPE##4 max3(TYPE##4 a, TYPE##4 b, TYPE##4 c) { return TYPE##4(max(max(a, b), c)); }
-
-            DEFINE_MINMAX3(bool)
-            DEFINE_MINMAX3(uint)
-            DEFINE_MINMAX3(int)
-            DEFINE_MINMAX3(float)
-            DEFINE_MINMAX3(half)
-
-             // 定义 select 函数
-             float3 select(int id, float3 e0, float3 e1, float3 e2, float3 e3, float3 e4)
-             {
-                 return id == 0 ? e0 : (id == 1 ? e1 : (id == 2 ? e2 : (id == 3 ? e3 : e4)));
-             }
-
-            struct Attributes
-            {
-                float4 positionOS   : POSITION;
-                float4 tangentOS    : TANGENT;
-                float3 normalOS     : NORMAL;
-                float2 uv: TEXCOORD0;
-                float2 texcoord : TEXCOORD1;
-            };
-
-            struct Varyings
-            {
-                float4 positionCS  : SV_POSITION;
-                float2 uv: TEXCOORD0;
-                float4 positionWSAndFogFactor : TEXCOORD1;
-                float3 normalWS : TEXCOORD2;
-                float4 tangentWS : TEXCOORD3;
-                float3 viewDirWS : TEXCOORD4;
-            };
-
-            TEXTURE2D(_BaseMap);
-            SAMPLER(sampler_BaseMap);
-            TEXTURE2D(_OtherDataTex);
-            SAMPLER(sampler_OtherDataTex);
-            TEXTURE2D(_NormalMap);
-            SAMPLER(sampler_NormalMap);
-
-            CBUFFER_START(UnityPerMaterial)
-            float4 _Color;
-            float4 _BaseMap_ST;
-            float4 _OtherDataTex_ST;
-            float4 _NormalMap_ST;
-            float _BumpScale;
-            float _AlbedoSmoothness;
-            float _MaterialID; // 添加材质ID变量
-            float4 _ShadowColor; // 添加阴影颜色变量
-            float4 _ShadowColor2;
-            float4 _ShadowColor3;
-            float4 _ShadowColor4;
-            float4 _ShadowColor5;
-            float4 _ShallowColor;
-            float4 _ShallowColor2;
-            float4 _ShallowColor3;
-            float4 _ShallowColor4;
-            float4 _ShallowColor5;
-            float4 _PostShadowFadeTint; // 添加后阴影淡化色调变量
-            float4 _PostShadowTint;
-            float4 _PostShallowFadeTint;
-            float4 _PostShallowTint;
-            float4 _PostSSSTint;
-            float4 _PostFrontTint;
-            float4 _PostForwardTint;
-            float _ScreenSpaceShadowWidth;
-            float _ScreenSpaceShadowFadeout;
-            float _ScreenSpaceShadowThreshold;
-            sampler2D _CameraDepthTexture;
-            //SAMPLER(sampler_CameraDepthTexture);
-            //float4 _ZBufferParams;
-            //float4 _ScaledScreenParams;
-            
-            
-            float AverageColor(float3 color)
-            {
-                return dot(color,float3(1.0,1.0,1.0))/3.0;
-            }
-
-            float3 NormalizeColorByAverage(float3 color)
-            {
-                float average = AverageColor(color);
-                return color / max(average,1e-5);
-            }
-
-            float3 ScaleColorByMax(float3 color)
-            {
-                float maxComponent = max3(color.r,color.g,color.g);
-                maxComponent = min(maxComponent,1.0);
-                return float3(color * maxComponent);
-            }
-            float LoadSceneDepth(float2 uv)
-            {
-                // 从深度纹理中采样深度值
-                float rawDepth = tex2D(_CameraDepthTexture, uv).r;
-                return rawDepth;
-            }
-
-            CBUFFER_END
-
-            Varyings vert(Attributes IN)
-            {
-                Varyings OUT;
-
-                OUT.positionCS = TransformObjectToHClip(IN.positionOS.xyz);
-                OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
-
-                OUT.positionWSAndFogFactor = float4(TransformObjectToWorld(IN.positionOS.xyz), ComputeFogFactor(OUT.positionCS.z));
-                OUT.normalWS = normalize(TransformObjectToWorldNormal(IN.normalOS));
-                OUT.tangentWS = float4(normalize(TransformObjectToWorldNormal(IN.tangentOS.xyz)), IN.tangentOS.w);
-                OUT.viewDirWS = GetWorldSpaceViewDir(OUT.positionWSAndFogFactor.xyz);
-
-                return OUT;
-            }
-
-            float4 frag(Varyings IN, bool isFrontFace : SV_IsFrontFace) : SV_Target
-            {
-                float4 texel = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
-                float3 normalWS = normalize(IN.normalWS);
-                float3 pixelNormalWS = normalWS;
-                float  diffuseBias = 0;
-
-                float baseAlpha = 1.0;
-                
-                float3 positionWS = IN.positionWSAndFogFactor.xyz;
-
-                float4 shadowCoord = TransformWorldToShadowCoord(positionWS);
-                Light mainLight = GetMainLight(shadowCoord);
-                float3 lightDirWS = normalize(mainLight.direction);
-                float3 lightColor = mainLight.color;
-                float sgn = IN.tangentWS.w;
-                float3 tangentWS = normalize(IN.tangentWS.xyz);
-                float3 bitangentWS = cross(normalWS, tangentWS) * sgn;
-                
-
-                // 根据 MaterialID 选择使用自身法线还是贴图法线
-                if (_MaterialIDUSE == 0)
-                {
-                    // 使用自身法线
-                    pixelNormalWS = normalWS;
-                }
-                else
-                {
-                    // 使用法线贴图
-
-                float4 lightData = SAMPLE_TEXTURE2D(_NormalMap,sampler_NormalMap, IN.uv);
-                lightData = lightData * 2 - 1;
-                diffuseBias = lightData.z * 2;
-
-                float3 pixelNormalTS = float3(lightData.xy,0.0);
-                pixelNormalTS.xy *= _BumpScale;
-                pixelNormalTS.z = sqrt(1.0 - min(0.0, dot(pixelNormalTS.xy, pixelNormalTS.xy)));
-                pixelNormalWS = TransformTangentToWorld(pixelNormalTS,float3x3(tangentWS,bitangentWS,normalWS));
-                pixelNormalWS = normalize(pixelNormalWS);
-            }
-
-                float4 otherData = SAMPLE_TEXTURE2D(_OtherDataTex, sampler_OtherDataTex, IN.uv);
-                int materialid = max(0,4 - floor(otherData.x *5)); // 将 x 通道值映射到 0-5的整数范围 
-               
-
-                normalWS *= isFrontFace ? 1 : -1;
-                pixelNormalWS *= isFrontFace ? 1 : -1;
-
-                float4 cameraDepthTex = tex2D(_CameraDepthTexture, IN.uv);
-
-
-                float shadowAttenuation = 1.0;
-                
-                #if _SCREEN_SPACE_SHADOW
-                {
-                    float linearEyeDepth = IN.positionCS.w;
-                    float perspective = 1.0 / linearEyeDepth;
-                    float offsetMul = _ScreenSpaceShadowWidth * 5.0 * perspective / 100.0;
-
-                    float3 lightDirectionVS = TransformWorldToViewDir(lightDirWS);
-                    float2 offset =  lightDirectionVS.xy * offsetMul;
-                    float2 coord = IN.positionCS.xy + offset * _ScaledScreenParams.xy;
-                    coord = min(max(0,coord), _ScaledScreenParams.xy - 1);
-                    float offsetSceneDepth = LoadSceneDepth(coord);
-                    float offsetSceneLinearEyeDepth = LinearEyeDepth(offsetSceneDepth, _ZBufferParams);
-
-                    float fadeout = max(1e-5,_ScreenSpaceShadowFadeout);
-                    shadowAttenuation = saturate((offsetSceneLinearEyeDepth - (linearEyeDepth - _ScreenSpaceShadowThreshold)) * 50 / fadeout);
-                }
-                #endif
-
-                float3 baseAttenuation = 1.0;
-                {
-                    float NoL = dot(pixelNormalWS, lightDirWS);
-                    baseAttenuation = NoL;
-                    baseAttenuation += diffuseBias;
-                }
-
-                float albedoSmoothness = max(1e-5, _AlbedoSmoothness);
-
-                float albedoShadowFade = 1.0;
-                float albedoShadow = 1.0;
-                float albedoShallowFade = 1.0;
-                float albedoShallow = 1.0;
-                float albedoSSS = 1.0;
-                float albedoFront = 1.0;
-                float albedoForward = 1.0;
-                {
-                    float attenuation = baseAttenuation * 1.5;
-                    float s0 = albedoSmoothness * 1.5; 
-                    float s1 = 1.0 - s0;
-
-                    float aRamp[6] = {
-                        (attenuation + 1.5) / s1 + 0.0,
-                        (attenuation + 0.5) / s0 + 0.5,
-                        (attenuation + 0.0) / s1 + 0.5,
-                        (attenuation - 0.5) / s0 + 0.5,
-                        (attenuation - 0.5) / s0 - 0.5,
-                        (attenuation - 2.0) / s1 + 1.5,
-
-                    };
-
-                    albedoShadowFade = saturate(1 - aRamp[0]);
-                    albedoShadow = saturate(min(1 - aRamp[1], aRamp[0]));
-                    albedoShallowFade = saturate(min(1 - aRamp[2], aRamp[1]));
-                    albedoShallow = saturate(min(1 - aRamp[3], aRamp[2]));
-                    albedoSSS = saturate(min(1 - aRamp[4], aRamp[3]));
-                    albedoFront = saturate(min(1 - aRamp[5], aRamp[4]));
-                    albedoForward = saturate(aRamp[5]);                   
-                }
-
-                float3 shadowFadeColor = 1.0;
-                float3 shadowColor = 1.0;
-                float3 shallowFadeColor = 1.0;
-                float3 shallowColor = 1.0;
-                float3 sssColor = 1.0;
-                float3 frontColor = 1.0;
-                float3 forwardColor = 1.0;
-                {
-                    float zFade = saturate(IN.positionCS.w + 0.43725);
-
-                    shadowColor = select(materialid,
-                        _ShadowColor,
-                        _ShadowColor2,
-                        _ShadowColor3,
-                        _ShadowColor4,
-                        _ShadowColor5
-                        );
-
-                        shadowColor = lerp(NormalizeColorByAverage(shadowColor), shadowColor, zFade);
-                        shadowFadeColor = shadowColor * _PostShadowFadeTint;
-                        shadowColor = shadowColor * _PostShadowTint;
-
-                        shallowColor = select(materialid,
-                            _ShallowColor,
-                            _ShallowColor2,
-                            _ShallowColor3,
-                            _ShallowColor4,
-                            _ShallowColor5
-                            );
-    
-                            shallowColor = lerp(NormalizeColorByAverage(shallowColor), shallowColor, zFade);
-                            shallowFadeColor = shallowColor * _PostShallowFadeTint;
-                            shallowColor = shallowColor * _PostShallowTint;
-
-                            sssColor = _PostSSSTint;
-                            frontColor = _PostFrontTint;
-                            forwardColor = 1.0;
-                }
-
-                float3 lightColorScaledBymax = ScaleColorByMax(lightColor);
-                float3 albedo = (albedoForward * forwardColor + albedoFront * frontColor + albedoSSS * sssColor) * lightColor;
-                albedo += (albedoShadowFade * shadowFadeColor + albedoShadow * shadowColor + albedoShallowFade * shallowFadeColor + albedoShallow * shallowColor) * lightColorScaledBymax;
-               
-                float a = abs(albedoShadowFade + albedoShadow + albedoShallowFade + albedoShallow + albedoSSS + albedoFront + albedoForward - 1.0) < 0.01;
-
-
-
-                return float4(albedo * texel, baseAlpha);
-                //return float4(shadowAttenuation.xxx, baseAlpha);
-
-            }
             ENDHLSL
         }
+            
+        // Pass
+        // {
+        //     Name "UniversalForward2"
+        //     Tags { "LightMode" = "UniversalForward" }
+        //     Cull [_Cull]
+        //     Blend [_SrcBlendMode] [_DstBlendMode]
+        //     BlendOp [_BlendOp]
+        //     ZWrite [_ZWrite]
+        //     Stencil
+        //     {
+        //         Ref [_StencilRef]
+        //         Comp [_StencilComp]
+        //         Pass [_StencilPassOp]
+        //         Fail [_StencilFailOp]
+        //         ZFail [_StencilZFailOp]
+        //     }
+
+        //     HLSLPROGRAM
+        //     #pragma shader_feature_local _SCREEN_SPACE_RIM
+        //     #pragma shader_feature_local _SCREEN_SPACE_SHADOW
+
+        //     #pragma vertex vert
+        //     #pragma fragment frag
+
+        //     #pragma multi_compile_fog
+
+        //     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        //     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+        //     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+
+        //     #define DEFINE_MINMAX3(TYPE) \
+        //     TYPE min3(TYPE a, TYPE b, TYPE c) { return TYPE(min(min(a, b), c)); } \
+        //     TYPE##2 min3(TYPE##2 a, TYPE##2 b, TYPE##2 c) { return TYPE##2(min(min(a, b), c)); } \
+        //     TYPE##3 min3(TYPE##3 a, TYPE##3 b, TYPE##3 c) { return TYPE##3(min(min(a, b), c)); } \
+        //     TYPE##4 min3(TYPE##4 a, TYPE##4 b, TYPE##4 c) { return TYPE##4(min(min(a, b), c)); } \
+        //     TYPE max3(TYPE a, TYPE b, TYPE c) { return TYPE(max(max(a, b), c)); } \
+        //     TYPE##2 max3(TYPE##2 a, TYPE##2 b, TYPE##2 c) { return TYPE##2(max(max(a, b), c)); } \
+        //     TYPE##3 max3(TYPE##3 a, TYPE##3 b, TYPE##3 c) { return TYPE##3(max(max(a, b), c)); } \
+        //     TYPE##4 max3(TYPE##4 a, TYPE##4 b, TYPE##4 c) { return TYPE##4(max(max(a, b), c)); }
+
+        //     DEFINE_MINMAX3(bool)
+        //     DEFINE_MINMAX3(uint)
+        //     DEFINE_MINMAX3(int)
+        //     DEFINE_MINMAX3(float)
+        //     DEFINE_MINMAX3(half)
+
+        //      // 定义 select 函数
+        //      float3 select(int id, float3 e0, float3 e1, float3 e2, float3 e3, float3 e4)
+        //      {
+        //          return id == 0 ? e0 : (id == 1 ? e1 : (id == 2 ? e2 : (id == 3 ? e3 : e4)));
+        //      }
+
+        //     struct Attributes
+        //     {
+        //         float4 positionOS   : POSITION;
+        //         float4 tangentOS    : TANGENT;
+        //         float3 normalOS     : NORMAL;
+        //         float2 uv: TEXCOORD0;
+        //         float2 texcoord : TEXCOORD1;
+        //     };
+
+        //     struct Varyings
+        //     {
+        //         float4 positionCS  : SV_POSITION;
+        //         float2 uv: TEXCOORD0;
+        //         float4 positionWSAndFogFactor : TEXCOORD1;
+        //         float3 normalWS : TEXCOORD2;
+        //         float4 tangentWS : TEXCOORD3;
+        //         float3 viewDirWS : TEXCOORD4;
+        //     };
+
+        //     TEXTURE2D(_BaseMap);
+        //     SAMPLER(sampler_BaseMap);
+        //     TEXTURE2D(_OtherDataTex);
+        //     SAMPLER(sampler_OtherDataTex);
+        //     TEXTURE2D(_NormalMap);
+        //     SAMPLER(sampler_NormalMap);
+
+        //     CBUFFER_START(UnityPerMaterial)
+        //     float4 _Color;
+        //     float4 _BaseMap_ST;
+        //     float4 _OtherDataTex_ST;
+        //     float4 _NormalMap_ST;
+        //     float _BumpScale;
+        //     float _AlbedoSmoothness;
+        //     float _MaterialID; // 添加材质ID变量
+        //     float4 _ShadowColor; // 添加阴影颜色变量
+        //     float4 _ShadowColor2;
+        //     float4 _ShadowColor3;
+        //     float4 _ShadowColor4;
+        //     float4 _ShadowColor5;
+        //     float4 _ShallowColor;
+        //     float4 _ShallowColor2;
+        //     float4 _ShallowColor3;
+        //     float4 _ShallowColor4;
+        //     float4 _ShallowColor5;
+        //     float4 _PostShadowFadeTint; // 添加后阴影淡化色调变量
+        //     float4 _PostShadowTint;
+        //     float4 _PostShallowFadeTint;
+        //     float4 _PostShallowTint;
+        //     float4 _PostSSSTint;
+        //     float4 _PostFrontTint;
+        //     float4 _PostForwardTint;
+        //     float _ScreenSpaceShadowWidth;
+        //     float _ScreenSpaceShadowFadeout;
+        //     float _ScreenSpaceShadowThreshold;
+        //     sampler2D _CameraDepthTexture;
+        //     //SAMPLER(sampler_CameraDepthTexture);
+        //     //float4 _ZBufferParams;
+        //     //float4 _ScaledScreenParams;
+            
+            
+        //     float AverageColor(float3 color)
+        //     {
+        //         return dot(color,float3(1.0,1.0,1.0))/3.0;
+        //     }
+
+        //     float3 NormalizeColorByAverage(float3 color)
+        //     {
+        //         float average = AverageColor(color);
+        //         return color / max(average,1e-5);
+        //     }
+
+        //     float3 ScaleColorByMax(float3 color)
+        //     {
+        //         float maxComponent = max3(color.r,color.g,color.g);
+        //         maxComponent = min(maxComponent,1.0);
+        //         return float3(color * maxComponent);
+        //     }
+        //     float LoadSceneDepth(float2 uv)
+        //     {
+        //         // 从深度纹理中采样深度值
+        //         float rawDepth = tex2D(_CameraDepthTexture, uv).r;
+        //         return rawDepth;
+        //     }
+
+        //     CBUFFER_END
+
+        //     Varyings vert(Attributes IN)
+        //     {
+        //         Varyings OUT;
+
+        //         OUT.positionCS = TransformObjectToHClip(IN.positionOS.xyz);
+        //         OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
+
+        //         OUT.positionWSAndFogFactor = float4(TransformObjectToWorld(IN.positionOS.xyz), ComputeFogFactor(OUT.positionCS.z));
+        //         OUT.normalWS = normalize(TransformObjectToWorldNormal(IN.normalOS));
+        //         OUT.tangentWS = float4(normalize(TransformObjectToWorldNormal(IN.tangentOS.xyz)), IN.tangentOS.w);
+        //         OUT.viewDirWS = GetWorldSpaceViewDir(OUT.positionWSAndFogFactor.xyz);
+
+        //         return OUT;
+        //     }
+
+        //     float4 frag(Varyings IN, bool isFrontFace : SV_IsFrontFace) : SV_Target
+        //     {
+        //         float4 texel = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
+        //         float3 normalWS = normalize(IN.normalWS);
+        //         float3 pixelNormalWS = normalWS;
+        //         float  diffuseBias = 0;
+
+        //         float baseAlpha = 1.0;
+                
+        //         float3 positionWS = IN.positionWSAndFogFactor.xyz;
+
+        //         float4 shadowCoord = TransformWorldToShadowCoord(positionWS);
+        //         Light mainLight = GetMainLight(shadowCoord);
+        //         float3 lightDirWS = normalize(mainLight.direction);
+        //         float3 lightColor = mainLight.color;
+        //         float sgn = IN.tangentWS.w;
+        //         float3 tangentWS = normalize(IN.tangentWS.xyz);
+        //         float3 bitangentWS = cross(normalWS, tangentWS) * sgn;
+                
+
+        //         // 根据 MaterialID 选择使用自身法线还是贴图法线
+        //         if (_MaterialIDUSE == 0)
+        //         {
+        //             // 使用自身法线
+        //             pixelNormalWS = normalWS;
+        //         }
+        //         else
+        //         {
+        //             // 使用法线贴图
+
+        //         float4 lightData = SAMPLE_TEXTURE2D(_NormalMap,sampler_NormalMap, IN.uv);
+        //         lightData = lightData * 2 - 1;
+        //         diffuseBias = lightData.z * 2;
+
+        //         float3 pixelNormalTS = float3(lightData.xy,0.0);
+        //         pixelNormalTS.xy *= _BumpScale;
+        //         pixelNormalTS.z = sqrt(1.0 - min(0.0, dot(pixelNormalTS.xy, pixelNormalTS.xy)));
+        //         pixelNormalWS = TransformTangentToWorld(pixelNormalTS,float3x3(tangentWS,bitangentWS,normalWS));
+        //         pixelNormalWS = normalize(pixelNormalWS);
+        //     }
+
+        //         float4 otherData = SAMPLE_TEXTURE2D(_OtherDataTex, sampler_OtherDataTex, IN.uv);
+        //         int materialid = max(0,4 - floor(otherData.x *5)); // 将 x 通道值映射到 0-5的整数范围 
+               
+
+        //         normalWS *= isFrontFace ? 1 : -1;
+        //         pixelNormalWS *= isFrontFace ? 1 : -1;
+
+        //         float4 cameraDepthTex = tex2D(_CameraDepthTexture, IN.uv);
+
+
+        //         float shadowAttenuation = 1.0;
+                
+        //         #if _SCREEN_SPACE_SHADOW
+        //         {
+        //             float linearEyeDepth = IN.positionCS.w;
+        //             float perspective = 1.0 / linearEyeDepth;
+        //             float offsetMul = _ScreenSpaceShadowWidth * 5.0 * perspective / 100.0;
+
+        //             float3 lightDirectionVS = TransformWorldToViewDir(lightDirWS);
+        //             float2 offset =  lightDirectionVS.xy * offsetMul;
+        //             float2 coord = IN.positionCS.xy + offset * _ScaledScreenParams.xy;
+        //             coord = min(max(0,coord), _ScaledScreenParams.xy - 1);
+        //             float offsetSceneDepth = LoadSceneDepth(coord);
+        //             float offsetSceneLinearEyeDepth = LinearEyeDepth(offsetSceneDepth, _ZBufferParams);
+
+        //             float fadeout = max(1e-5,_ScreenSpaceShadowFadeout);
+        //             shadowAttenuation = saturate((offsetSceneLinearEyeDepth - (linearEyeDepth - _ScreenSpaceShadowThreshold)) * 50 / fadeout);
+        //         }
+        //         #endif
+
+        //         float3 baseAttenuation = 1.0;
+        //         {
+        //             float NoL = dot(pixelNormalWS, lightDirWS);
+        //             baseAttenuation = NoL;
+        //             baseAttenuation += diffuseBias;
+        //         }
+
+        //         float albedoSmoothness = max(1e-5, _AlbedoSmoothness);
+
+        //         float albedoShadowFade = 1.0;
+        //         float albedoShadow = 1.0;
+        //         float albedoShallowFade = 1.0;
+        //         float albedoShallow = 1.0;
+        //         float albedoSSS = 1.0;
+        //         float albedoFront = 1.0;
+        //         float albedoForward = 1.0;
+        //         {
+        //             float attenuation = baseAttenuation * 1.5;
+        //             float s0 = albedoSmoothness * 1.5; 
+        //             float s1 = 1.0 - s0;
+
+        //             float aRamp[6] = {
+        //                 (attenuation + 1.5) / s1 + 0.0,
+        //                 (attenuation + 0.5) / s0 + 0.5,
+        //                 (attenuation + 0.0) / s1 + 0.5,
+        //                 (attenuation - 0.5) / s0 + 0.5,
+        //                 (attenuation - 0.5) / s0 - 0.5,
+        //                 (attenuation - 2.0) / s1 + 1.5,
+
+        //             };
+
+        //             albedoShadowFade = saturate(1 - aRamp[0]);
+        //             albedoShadow = saturate(min(1 - aRamp[1], aRamp[0]));
+        //             albedoShallowFade = saturate(min(1 - aRamp[2], aRamp[1]));
+        //             albedoShallow = saturate(min(1 - aRamp[3], aRamp[2]));
+        //             albedoSSS = saturate(min(1 - aRamp[4], aRamp[3]));
+        //             albedoFront = saturate(min(1 - aRamp[5], aRamp[4]));
+        //             albedoForward = saturate(aRamp[5]);                   
+        //         }
+
+        //         float3 shadowFadeColor = 1.0;
+        //         float3 shadowColor = 1.0;
+        //         float3 shallowFadeColor = 1.0;
+        //         float3 shallowColor = 1.0;
+        //         float3 sssColor = 1.0;
+        //         float3 frontColor = 1.0;
+        //         float3 forwardColor = 1.0;
+        //         {
+        //             float zFade = saturate(IN.positionCS.w + 0.43725);
+
+        //             shadowColor = select(materialid,
+        //                 _ShadowColor,
+        //                 _ShadowColor2,
+        //                 _ShadowColor3,
+        //                 _ShadowColor4,
+        //                 _ShadowColor5
+        //                 );
+
+        //                 shadowColor = lerp(NormalizeColorByAverage(shadowColor), shadowColor, zFade);
+        //                 shadowFadeColor = shadowColor * _PostShadowFadeTint;
+        //                 shadowColor = shadowColor * _PostShadowTint;
+
+        //                 shallowColor = select(materialid,
+        //                     _ShallowColor,
+        //                     _ShallowColor2,
+        //                     _ShallowColor3,
+        //                     _ShallowColor4,
+        //                     _ShallowColor5
+        //                     );
+    
+        //                     shallowColor = lerp(NormalizeColorByAverage(shallowColor), shallowColor, zFade);
+        //                     shallowFadeColor = shallowColor * _PostShallowFadeTint;
+        //                     shallowColor = shallowColor * _PostShallowTint;
+
+        //                     sssColor = _PostSSSTint;
+        //                     frontColor = _PostFrontTint;
+        //                     forwardColor = 1.0;
+        //         }
+
+        //         float3 lightColorScaledBymax = ScaleColorByMax(lightColor);
+        //         float3 albedo = (albedoForward * forwardColor + albedoFront * frontColor + albedoSSS * sssColor) * lightColor;
+        //         albedo += (albedoShadowFade * shadowFadeColor + albedoShadow * shadowColor + albedoShallowFade * shallowFadeColor + albedoShallow * shallowColor) * lightColorScaledBymax;
+               
+        //         float a = abs(albedoShadowFade + albedoShadow + albedoShallowFade + albedoShallow + albedoSSS + albedoFront + albedoForward - 1.0) < 0.01;
+
+
+
+        //         return float4(albedo * texel, baseAlpha);
+        //         //return float4(shadowAttenuation.xxx, baseAlpha);
+
+        //     }
+        //     ENDHLSL
+        // }
         
         Pass
         {
