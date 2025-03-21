@@ -374,7 +374,7 @@ Shader "Unlit/ZZZ_Shader"
 
                 float3 viewDirWS = GetWorldSpaceNormalizeViewDir(vertexInput.positionWS);                           
                 output.normalWS = half3(normalInput.normalWS);
-                float sign = input.tangentOS.w * float3(GetOddNegativeScale());
+                float sign = input.tangentOS.w * float(GetOddNegativeScale());
                 output.tangentWS = half4(normalInput.tangentWS.xyz,sign);
 
                 return output;               
