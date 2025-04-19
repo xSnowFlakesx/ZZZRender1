@@ -1,0 +1,36 @@
+using UnityEditor;
+using UnityEngine;
+using System.Linq;
+
+public class MaterialRenamer : EditorWindow
+{
+    [MenuItem("Tools/批量重命名材质")]
+    static void RenameMaterials()
+    {
+        var materials = Selection.GetFiltered<Material>(SelectionMode.Assets);
+        if (materials.Length == 0)
+        {
+            Debug.LogWarning("请先在Project窗口选择需要重命名的材质");
+            return;
+        }
+
+        var sortedMaterials = materials.OrderBy(m => m.name).ToArray();
+        
+        // 批量操作开始（提升性能）
+        AssetDatabase.StartAssetEditing();
+        
+        for (int i = 0; i < sortedMaterials.Length; i++)
+        {
+            // 修改起始数字和格式化方式
+            string newName = $"Material_{i + 1:D3}"; // D3表示始终显示3位数字
+            string assetPath = AssetDatabase.GetAssetPath(sortedMaterials[i]);
+            AssetDatabase.RenameAsset(assetPath, newName);
+        }
+        
+        // 批量操作结束
+        AssetDatabase.StopAssetEditing();
+        AssetDatabase.Refresh(); // 统一刷新一次即可
+        
+        Debug.Log($"成功重命名 {materials.Length} 个材质");
+    }
+}
