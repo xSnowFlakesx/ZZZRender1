@@ -1,0 +1,134 @@
+using System.Linq; // 添加在文件最上方
+using UnityEditor;
+using UnityEngine;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+
+public class TextureBatchAssigner : EditorWindow
+{
+    // 后缀与材质属性映射
+    private static readonly Dictionary<string, string> suffixMapping = new Dictionary<string, string>
+    {
+        { "", "_BaseMap" },          // 基础贴图
+        { "_M", "_MetallicGlossMap" }, // 金属贴图
+        { "_N", "_BumpMap" }          // 法线贴图
+    };
+
+    [MenuItem("Tools/按编号批量绑定贴图")]
+    static void AssignTexturesByNumber()
+    {
+        var materials = Selection.GetFiltered<Material>(SelectionMode.Assets);
+        if (materials.Length == 0)
+        {
+            Debug.LogWarning("请先选择需要处理的材质");
+            return;
+        }
+
+        AssetDatabase.StartAssetEditing();
+        
+        foreach (var mat in materials)
+        {
+            // 步骤1：从材质名称提取数字编号
+            string materialNumber = ExtractMaterialNumber(mat.name);
+            if (string.IsNullOrEmpty(materialNumber))
+            {
+                Debug.LogWarning($"跳过无效命名的材质: {mat.name}");
+                continue;
+            }
+
+            // 步骤2：构建目标贴图基础名称
+            string targetTextureBase = $"Tex_{materialNumber}";
+            
+            // 步骤3：获取材质所在目录
+            string matPath = AssetDatabase.GetAssetPath(mat);
+            string folderPath = System.IO.Path.GetDirectoryName(matPath);
+
+            // 步骤4：查找匹配贴图
+            var matchedTextures = FindMatchingTextures(folderPath, targetTextureBase);
+
+            // 步骤5：分配贴图
+            AssignTexturesToMaterial(mat, matchedTextures);
+        }
+
+        AssetDatabase.StopAssetEditing();
+        AssetDatabase.SaveAssets();
+        Debug.Log($"完成 {materials.Length} 个材质的贴图绑定");
+    }
+
+    // 从材质名称提取三位数字编号（支持Material_099或任意包含_099的名称）
+    static string ExtractMaterialNumber(string materialName)
+    {
+        Match match = Regex.Match(materialName, @"_(\d{3})(?:_|$)");
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
+    // 查找匹配的贴图文件
+    static Dictionary<string, Texture2D> FindMatchingTextures(string folderPath, string baseName)
+    {
+        var result = new Dictionary<string, Texture2D>();
+
+        // 添加错误处理
+    if (string.IsNullOrEmpty(folderPath))
+    {
+        Debug.LogError("材质路径无效");
+        return result;
+    }
+        
+         var textures = AssetDatabase.FindAssets("t:Texture2D", new[] { folderPath })
+        .Select(guid => 
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (tex == null) Debug.LogWarning($"无法加载贴图: {path}");
+            return tex;
+        })
+        .Where(tex => tex != null); // 过滤空值
+
+    foreach (var tex in textures)
+    {
+        Debug.Log($"检查贴图: {tex.name}"); // 日志输出
+        foreach (var suffix in suffixMapping.Keys)
+        {
+            string expectedName = $"{baseName}{suffix}";
+            if (tex.name.Equals(expectedName, System.StringComparison.OrdinalIgnoreCase)) // 忽略大小写
+            {
+                result[suffix] = tex;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+    // 将贴图分配到材质属性
+    static void AssignTexturesToMaterial(Material mat, Dictionary<string, Texture2D> textures)
+    {
+        bool changed = false;
+        
+        foreach (var pair in suffixMapping)
+        {
+            string suffix = pair.Key;
+            string property = pair.Value;
+
+            if (textures.TryGetValue(suffix, out Texture2D tex))
+            {
+                if (mat.HasProperty(property))
+                {
+                    Undo.RecordObject(mat, "Assign Texture");
+                    mat.SetTexture(property, tex);
+                    changed = true;
+                }
+                else
+                {
+                    Debug.LogWarning($"材质 {mat.name} 缺少属性: {property}");
+                }
+            }
+        }
+
+        if (changed)
+        {
+            EditorUtility.SetDirty(mat);
+            Debug.Log($"成功更新材质: {mat.name}", mat);
+        }
+    }
+}
