@@ -324,6 +324,7 @@ Shader "Unlit/ZZZ_Shader"
             SAMPLER(sampler_NormalMap);
 
             CBUFFER_START(UnityPerMaterial)
+            
             float4 _Color;
             float4 _BaseMap_ST;
             float4 _OtherDataTex_ST;
@@ -1143,9 +1144,11 @@ Shader "Unlit/ZZZ_Shader"
 
             color = MixFog(color, IN.positionWSAndFogFactor.w);
 
+             float alpha = texel.a * _AlphaScale; // 关键：从BaseMap的A通道获取透明度
+
             //float alpha = texel.a * baseAlpha * _Color.a;
                 //return float4(albedo * texel, baseAlpha);
-                return float4(color, texel.a * _AlphaScale);
+                return float4(color, alpha);
                 //return float4(texel.a.xxx, texel.a);
                 
 
@@ -1224,7 +1227,7 @@ Shader "Unlit/ZZZ_Shader"
 
             float4 fragDepth(Varyings IN) : SV_Target
             {
-                clip(1.0 - _AlpahClip);
+                clip(1.0 - _AlphaClip);
                 return 0;
             }
             ENDHLSL
