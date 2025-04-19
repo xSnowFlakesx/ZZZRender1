@@ -1,0 +1,138 @@
+Shader "Unit/ShaftFog_URP"
+{
+    Properties
+    {
+        _Shaftcolor("Shaft color", Color) = (1,0.8068966,0,0)
+        _Opacityshift("Opacity shift", Range(0.01, 1)) = 1
+        _Frequency("Frequency", Range(0, 3)) = 0
+        _FrequencyScale("Frequency Scale", Range(0, 0.5)) = 0.5
+        _Emmisionlevel("Emmision level", Range(0.01, 50)) = 0.01
+        _Texture2blend("Texture 2 blend", Range(0, 1)) = 0.5
+        _Texture3blend("Texture 3 blend", Range(0, 1)) = 0.5
+        _Noise_level("Noise_level", Range(0, 1)) = 0.15
+        _Texture1tiling("Texture1 tiling", Vector) = (1,1,0,0)
+        _Texture2tiling("Texture2 tiling", Vector) = (1,1,0,0)
+        _Texture3tiling("Texture3 tiling", Vector) = (1,1,0,0)
+        _Texture4tiling("Texture4 tiling", Vector) = (1,1,0,0)
+        _Texture1speed("Texture1 speed", Vector) = (0.08,0,0,0)
+        _Texture2speed("Texture2 speed", Vector) = (0.1,0,0,0)
+        _Texture3speed("Texture3 speed", Vector) = (-0.1,0,0,0)
+        _Texture4speed("Texture4 speed", Vector) = (-0.1,0.1,0,0)
+        _Texture1("Texture1", 2D) = "white" {}
+        _Texture2("Texture2", 2D) = "white" {}
+        _Texture3("Texture3", 2D) = "white" {}
+        _Texture4("Texture4", 2D) = "white" {}
+        [HideInInspector]_texcoord("", 2D) = "white" {}
+    }
+
+    SubShader
+    {
+        Tags
+        {
+            "RenderType" = "Transparent"
+            "Queue" = "Transparent"
+            "IgnoreProjector" = "True"
+            "RenderPipeline" = "UniversalPipeline"
+        }
+
+        Blend SrcAlpha OneMinusSrcAlpha
+        Cull Off
+        ZWrite Off
+
+        Pass
+        {
+            Name "ForwardLit"
+            Tags { "LightMode" = "UniversalForward" }
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float2 uv : TEXCOORD0;
+            };
+
+            struct Varyings
+            {
+                float2 uv : TEXCOORD0;
+                float4 positionHCS : SV_POSITION;
+            };
+
+            TEXTURE2D(_Texture1); SAMPLER(sampler_Texture1);
+            TEXTURE2D(_Texture2); SAMPLER(sampler_Texture2);
+            TEXTURE2D(_Texture3); SAMPLER(sampler_Texture3);
+            TEXTURE2D(_Texture4); SAMPLER(sampler_Texture4);
+
+            CBUFFER_START(UnityPerMaterial)
+            float4 _Shaftcolor;
+            float _Opacityshift;
+            float _Frequency;
+            float _FrequencyScale;
+            float _Emmisionlevel;
+            float _Texture2blend;
+            float _Texture3blend;
+            float _Noise_level;
+            float2 _Texture1tiling;
+            float2 _Texture2tiling;
+            float2 _Texture3tiling;
+            float2 _Texture4tiling;
+            float2 _Texture1speed;
+            float2 _Texture2speed;
+            float2 _Texture3speed;
+            float2 _Texture4speed;
+            CBUFFER_END
+
+            Varyings vert(Attributes IN)
+            {
+                Varyings OUT;
+                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
+                OUT.uv = IN.uv;
+                return OUT;
+            }
+
+            half4 frag(Varyings IN) : SV_Target
+            {
+                // Texture 1
+                float2 uv1 = IN.uv * _Texture1tiling;
+                float2 panner1 = _Time.y * _Texture1speed + uv1;
+                half4 tex1 = SAMPLE_TEXTURE2D(_Texture1, sampler_Texture1, panner1);
+
+                // Texture 2
+                float2 uv2 = IN.uv * _Texture2tiling;
+                float2 panner2 = _Time.y * _Texture2speed + uv2;
+                half4 tex2 = SAMPLE_TEXTURE2D(_Texture2, sampler_Texture2, panner2);
+                half4 blendTex12 = lerp(tex1, tex2, _Texture2blend);
+
+                // Texture 3
+                float2 uv3 = IN.uv * _Texture3tiling;
+                float2 panner3 = _Time.y * _Texture3speed + uv3;
+                half4 tex3 = SAMPLE_TEXTURE2D(_Texture3, sampler_Texture3, panner3);
+                half4 blendTex123 = lerp(blendTex12, tex3, _Texture3blend);
+
+                // Texture 4 (Noise)
+                float2 uv4 = IN.uv * _Texture4tiling;
+                float2 panner4 = _Time.y * _Texture4speed + uv4;
+                half4 tex4 = SAMPLE_TEXTURE2D(_Texture4, sampler_Texture4, panner4);
+                half4 noiseBlend = lerp(half4(0,0,0,0), tex4, blendTex123.r);
+                half4 finalTexture = lerp(blendTex123, noiseBlend, _Noise_level);
+
+                // Color & Emission
+                half4 shaftColor = saturate(finalTexture * _Shaftcolor);
+                half4 emission = shaftColor * _Emmisionlevel;
+
+                // Opacity Calculation
+                float frequency = (sin(_Time.y * _Frequency) * _FrequencyScale + _FrequencyScale);
+                half4 opacityLerp = lerp(finalTexture, half4(0,0,0,0), frequency);
+                half alpha = opacityLerp.r * _Opacityshift;
+
+                return half4(emission.rgb + shaftColor.rgb, alpha);
+            }
+            ENDHLSL
+        }
+    }
+    Fallback "Universal Render Pipeline/Unlit"
+}
